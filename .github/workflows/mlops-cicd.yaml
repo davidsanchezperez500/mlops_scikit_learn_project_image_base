@@ -3,7 +3,7 @@ name: MLOps CI/CD create docker base image
 on:
   push:
     branches:
-      - main
+      - feat/create_image
 
 jobs:
   docker_base_image:
