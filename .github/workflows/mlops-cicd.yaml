@@ -1,0 +1,50 @@
+name: MLOps CI/CD create docker base image
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  docker_base_image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      GCP_ARTIFACT_REGISTRY_REPO: ${{ vars.GCP_ARTIFACT_REGISTRY_REPO }}
+      GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      NAME_IMAGE: ${{ vars.NAME_IMAGE }}
+
+      
+    steps:
+      - uses: 'actions/checkout@v4'
+        with:
+          fetch-depth: 0
+
+      - id: "auth"
+        name: "Authenticate to Google Cloud"
+        uses: "google-github-actions/auth@v2"
+        with:
+          token_format: "access_token"
+          workload_identity_provider: ${{ secrets.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: "Set up Cloud SDK"
+        uses: "google-github-actions/setup-gcloud@v2"
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: "Configure Docker for Artifact Registry"
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev
+
+      - name: "Build and Push Docker Image"
+        run: |
+          IMAGE_TAG="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GCP_ARTIFACT_REGISTRY_REPO }}/${{ env.NAME_IMAGE }}:latest"
+          echo "Building Docker image: ${IMAGE_TAG}"
+          docker build --platform linux/amd64 -t "${IMAGE_TAG}" .
+          echo "Pushing Docker image: ${IMAGE_TAG}"
+          docker push "${IMAGE_TAG}"
